@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFF Redirect Xano</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        .container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .loading {
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <div class="container">
+            <div id="loadingText" class="loading">Redirecting...</div>
+        </div>
+    </div>
+
+    <script>
+        // 清除舊的紀錄
+        localStorage.removeItem('redirectTimings');
+        
+        const performance = {
+            startTime: Date.now(),
+            timestamps: {},
+            logs: [],
+            addTimestamp(label) {
+                this.timestamps[label] = Date.now() - this.startTime;
+                const logMessage = `Time - ${label}: ${this.timestamps[label]}ms`;
+                this.logs.push(logMessage);
+                console.log(logMessage);
+                
+                // 儲存到 localStorage
+                localStorage.setItem('redirectTimings', JSON.stringify({
+                    timestamps: this.timestamps,
+                    logs: this.logs,
+                    lastUpdate: new Date().toISOString()
+                }));
+            }
+        };
+        
+        function log(message) {
+            const timestamp = new Date().toISOString();
+            const logMessage = `${timestamp}: ${message}`;
+            console.log(logMessage);
+            performance.logs.push(logMessage);
+        }
+
+        function getDeviceInfo() {
+            const ua = navigator.userAgent;
+            if (/mobile/i.test(ua)) return 'mobile';
+            if (/tablet/i.test(ua)) return 'tablet';
+            return 'desktop';
+        }
+
+        async function processRedirect(urlToUse, userId) {
+            try {
+                performance.addTimestamp('processRedirect_start');
+                log('Starting redirect process');
+                const urlParams = new URLSearchParams(new URL(urlToUse).search);
+                let targetUrl = urlParams.get('url');
+
+                if (!targetUrl) {
+                    log('Error: Target URL not found in parameters');
+                    return;
+                }
+
+                log('Target URL found: ' + targetUrl);
+                targetUrl = decodeURIComponent(decodeURIComponent(targetUrl));
+                log('Decoded URL: ' + targetUrl);
+
+                const targetUrlObj = new URL(targetUrl);
+                const targetParams = new URLSearchParams(targetUrlObj.search);
+
+                const tags = targetParams.get('tags');
+                targetParams.delete('tags');
+                targetUrlObj.search = targetParams.toString();
+
+                const cleanUrl = targetUrlObj.toString();
+                log('Clean URL: ' + cleanUrl);
+
+                const deviceType = getDeviceInfo();
+                log(`Device: ${deviceType}`);
+
+                performance.addTimestamp('before_final_redirect');
+                const redirectUrl = `https://api.besparks.co/api:G90hiIoE/redirect?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(tags) : ''}&device=${deviceType}`;
+                
+                log('Final redirect URL: ' + redirectUrl);
+
+                // 在重定向前記錄總執行時間
+                performance.addTimestamp('total_execution_time');
+                
+                // 設置一個短暫的延遲確保數據被保存
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 50);
+            } catch (error) {
+                log(`Error in processRedirect: ${error.message}`);
+                log(`Error stack: ${error.stack}`);
+            }
+        }
+
+        async function handleUserRedirect() {
+            try {
+                performance.addTimestamp('handleUserRedirect_start');
+                log('Getting user profile');
+                const profile = await liff.getProfile();
+                performance.addTimestamp('profile_received');
+                log('Got user ID: ' + profile.userId);
+                await processRedirect(window.location.href, profile.userId);
+            } catch (error) {
+                log(`Error in handleUserRedirect: ${error.message}`);
+            }
+        }
+
+        async function initializeLiff() {
+            try {
+                performance.addTimestamp('initializeLiff_start');
+                log('Starting LIFF initialization');
+                const urlParams = new URLSearchParams(window.location.search);
+                const liffId = urlParams.get('liffId');
+                
+                log(`Current URL: ${window.location.href}`);
+                log(`URL parameters: ${window.location.search}`);
+                log(`Found LIFF ID: ${liffId}`);
+
+                if (!liffId) {
+                    log('Error: LIFF ID not found in URL parameters');
+                    return;
+                }
+
+                // Initialize LIFF
+                log('Attempting LIFF initialization');
+                await liff.init({ liffId });
+                performance.addTimestamp('liff_initialized');
+                log('LIFF initialized successfully');
+
+                // Check login status and handle redirect
+                if (liff.isLoggedIn()) {
+                    performance.addTimestamp('user_already_logged_in');
+                    log('User is logged in');
+                    await handleUserRedirect();
+                } else {
+                    performance.addTimestamp('redirecting_to_login');
+                    log('User not logged in, redirecting to LINE login');
+                    liff.login({ redirectUri: window.location.href });
+                }
+            } catch (err) {
+                log(`Error in initializeLiff: ${err.message}`);
+                log(`Error stack: ${err.stack}`);
+            }
+        }
+
+        log('Application starting');
+        performance.addTimestamp('application_start');
+        initializeLiff();
+    </script>
+</body>
+</html>
