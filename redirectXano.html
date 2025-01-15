@@ -98,7 +98,7 @@
                 log(`Device: ${deviceType}`);
 
                 performance.addTimestamp('before_final_redirect');
-                const redirectUrl = `https://api.besparks.co/api:G90hiIoE/redirect_v2?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(tags) : ''}&store_id=${storeId ? encodeURIComponent(storeId) : ''}&device=${deviceType}`;
+                const redirectUrl = `https://api.besparks.co/api:G90hiIoE/redirect/v2?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(tags) : ''}&store_id=${storeId ? encodeURIComponent(storeId) : ''}&device=${deviceType}`;
                 
                 log('Final redirect URL: ' + redirectUrl);
 
