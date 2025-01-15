@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFF Redirect</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        .container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            margin: 5px;
+            display: block;
+            min-width: 200px;
+        }
+        .close-button {
+            background-color: #00B900;
+        }
+        .close-button:hover {
+            background-color: #009900;
+        }
+        .redirect-button {
+            background-color: #4285f4;
+        }
+        .redirect-button:hover {
+            background-color: #3367d6;
+        }
+        .loading {
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            color: #333;
+        }
+        .buttons-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <div class="container">
+            <div id="loadingText" class="loading">Redirecting...</div>
+            <div id="buttonsContainer" class="buttons-container">
+                <button class="button close-button" onclick="closeWindow()">Close Window</button>
+                <button id="redirectButton" class="button redirect-button" onclick="handleManualRedirect()">Go to Website</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let savedCleanUrl = '';
+        
+        window.showLogs = function() {
+            const logs = JSON.parse(sessionStorage.getItem('debugLogs') || '[]');
+            console.log('=== Debug Logs ===');
+            logs.forEach(log => console.log(log));
+            return logs;
+        };
+
+        function log(message) {
+            const timestamp = new Date().toISOString();
+            const logMessage = `${timestamp}: ${message}`;
+            let logs = JSON.parse(sessionStorage.getItem('debugLogs') || '[]');
+            logs.push(logMessage);
+            if (logs.length > 100) {
+                logs = logs.slice(-100);
+            }
+            sessionStorage.setItem('debugLogs', JSON.stringify(logs));
+            console.log(logMessage);
+        }
+
+        window.loginPromise = (async () => {
+            try {
+                const liffId = new URLSearchParams(window.location.search).get('liffId');
+                if (!liffId) {
+                    throw new Error('LIFF ID not found');
+                }
+                
+                log(`Starting LIFF initialization with ID: ${liffId}`);
+                
+                await liff.init({
+                    liffId: liffId,
+                    withLoginOnExternalBrowser: false
+                });
+                
+                log('LIFF initialized successfully');
+
+                const isLoggedIn = liff.isLoggedIn();
+                log(`Login status: ${isLoggedIn}`);
+
+                if (!isLoggedIn) {
+                    log('User not logged in, saving current URL');
+                    sessionStorage.setItem('redirectUrl', window.location.href);
+                    
+                    log('Redirecting to LINE login');
+                    liff.login({
+                        redirectUri: window.location.href
+                    });
+                    return;
+                }
+
+                log('Proceeding with redirect process');
+                return true;
+            } catch (error) {
+                log(`Login error: ${error.message}`);
+                throw error;
+            }
+        })();
+
+        async function processRedirect(urlToUse) {
+            try {
+                log('Starting redirect process');
+                const urlParams = new URLSearchParams(new URL(urlToUse).search);
+                let targetUrl = urlParams.get('url');
+                
+                if (!targetUrl) {
+                    throw new Error('Target URL not found in parameters');
+                }
+
+                targetUrl = decodeURIComponent(decodeURIComponent(targetUrl));
+                const targetUrlObj = new URL(targetUrl);
+                const targetParams = new URLSearchParams(targetUrlObj.search);
+                const tagsParam = targetParams.get('tags');
+                
+                if (!tagsParam) {
+                    throw new Error('Tags parameter not found in target URL');
+                }
+
+                const tags = JSON.parse(decodeURIComponent(tagsParam));
+                targetParams.delete('tags');
+                targetUrlObj.search = targetParams.toString();
+                const cleanUrl = targetUrlObj.toString();
+
+                let userId = null;
+                let os = liff.getOS();
+                log(`OS detected: ${os}`);
+
+                // 不論內外部瀏覽器都取得用戶資訊
+                log('Getting LIFF profile');
+                try {
+                    const profile = await liff.getProfile();
+                    userId = profile.userId;
+                    log(`Profile retrieved: ${userId}`);
+                } catch (error) {
+                    log(`Error getting profile: ${error.message}`);
+                }
+
+                log('Sending API request');
+                const apiResponse = await fetch('https://api.besparks.co/api:G90hiIoE/redirect/v2', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        liffId: urlParams.get('liffId'),
+                        url: cleanUrl,
+                        tags,
+                        userId,
+                        os
+                    })
+                });
+
+                if (!apiResponse.ok) {
+                    throw new Error(`API response not OK: ${apiResponse.status}`);
+                }
+
+                log('API request successful, proceeding with redirect');
+                await handleRedirect(cleanUrl);
+            } catch (error) {
+                log(`Error in processRedirect: ${error.message}`);
+                throw error;
+            }
+        }
+
+        function closeWindow() {
+            log('Attempting to close window');
+            if (liff.isInClient && liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.close();
+                setTimeout(() => {
+                    window.history.back();
+                }, 100);
+            }
+        }
+
+        async function handleRedirect(cleanUrl) {
+            log(`Handling redirect to: ${cleanUrl}`);
+            savedCleanUrl = cleanUrl;
+            
+            if (liff.isInClient()) {
+                log('Redirecting in LINE client');
+                await liff.openWindow({
+                    url: cleanUrl,
+                    external: false
+                });
+            } else {
+                log('Redirecting in external browser');
+                window.location.replace(cleanUrl);
+            }
+        }
+
+        function handleManualRedirect() {
+            if (savedCleanUrl) {
+                log('Manual redirect triggered');
+                handleRedirect(savedCleanUrl);
+            }
+        }
+
+        async function initializeLiff() {
+            try {
+                log('Starting LIFF initialization');
+                const loginResult = await window.loginPromise;
+                
+                if (loginResult) {
+                    const currentUrl = window.location.href;
+                    log(`Using URL: ${currentUrl}`);
+                    await processRedirect(currentUrl);
+                }
+            } catch (err) {
+                log(`Error in initializeLiff: ${err.message}`);
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('buttonsContainer').style.display = 'block';
+            }
+        }
+
+        log('Application starting');
+        initializeLiff();
+    </script>
+</body>
+</html>
