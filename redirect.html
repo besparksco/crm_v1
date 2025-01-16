@@ -132,13 +132,21 @@
                 const targetUrlObj = new URL(targetUrl);
                 const targetParams = new URLSearchParams(targetUrlObj.search);
                 const tagsParam = targetParams.get('tags');
+                const store_idParam = targetParams.get('store_id');
                 
                 if (!tagsParam) {
                     throw new Error('Tags parameter not found in target URL');
                 }
 
+                 if (!store_idParam) {
+                    throw new Error('StoreId parameter not found in target URL');
+                }
+
                 const tags = JSON.parse(decodeURIComponent(tagsParam));
+                const store_id = decodeURIComponent(store_idParam);
                 targetParams.delete('tags');
+                targetParams.delete('store_id');
+                
                 targetUrlObj.search = targetParams.toString();
                 const cleanUrl = targetUrlObj.toString();
 
@@ -164,6 +172,7 @@
                         liffId: urlParams.get('liffId'),
                         url: cleanUrl,
                         tags,
+                        store_id: store_id,
                         userId,
                         os
                     })
