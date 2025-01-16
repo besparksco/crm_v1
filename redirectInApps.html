@@ -149,7 +149,8 @@
                 
                 targetUrlObj.search = targetParams.toString();
                 const cleanUrl = targetUrlObj.toString();
-                savedCleanUrl = cleanUrl; // 保存清理後的URL
+                const backUpUrl =  `https://api.besparks.co/api:G90hiIoE/redirect/v2?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(tags) : ''}&store_id=${storeId ? encodeURIComponent(storeId) : ''}`;
+                savedCleanUrl = backUpUrl; // 保存清理後的URL
 
                 let userId = null;
                 let os = liff.getOS();
