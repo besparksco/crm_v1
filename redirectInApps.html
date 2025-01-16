@@ -186,7 +186,7 @@
 
                 // 不管 API 結果如何都繼續執行
                 log('Proceeding with redirect');
-                await handleRedirect(cleanUrl);
+                await handleRedirect(cleanUrl, backUpUrl);
             } catch (error) {
                 log(`Error in processRedirect: ${error.message}`);
                 document.getElementById('loadingText').style.display = 'none';
@@ -206,9 +206,9 @@
             }
         }
 
-        async function handleRedirect(cleanUrl) {
-            log(`Handling redirect to: ${cleanUrl}`);
-            savedCleanUrl = cleanUrl;
+        async function handleRedirect(cleanUrl,backUpUrl) {
+            log(`Handling redirect to: ${backUpUrl}`);
+            savedCleanUrl = backUpUrl;
             
             if (liff.isInClient()) {
                 log('Redirecting in LINE client');
@@ -222,7 +222,7 @@
                 document.getElementById('buttonsContainer').style.display = 'block';
             } else {
                 log('Redirecting in external browser');
-                window.location.replace(cleanUrl);
+                window.location.replace(backUpUrl);
             }
         }
 
