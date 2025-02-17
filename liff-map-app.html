@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>門市地圖</title>
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <script>
+        let map;
+        let markers = [];
+
+        // 解析 URL 參數
+        function getUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return {
+                liffId: urlParams.get('liffId'),
+                storeData: urlParams.get('storeData'),
+                lat: parseFloat(urlParams.get('lat')), // 新增解析 lat
+                lng: parseFloat(urlParams.get('lng'))  // 新增解析 lng
+            };
+        }
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 3000);
+        }
+
+        // 初始化 LIFF
+        async function initializeLiff() {
+            try {
+                const { liffId } = getUrlParams();
+                if (!liffId) {
+                    throw new Error('未提供 LIFF ID');
+                }
+
+                await liff.init({ liffId });
+                
+                // 確認是否在 LIFF 瀏覽器中
+                if (!liff.isInClient()) {
+                    console.log('在外部瀏覽器中開啟');
+                }
+
+                // 載入 Google Maps
+                loadGoogleMaps();
+            } catch (error) {
+                console.error('LIFF 初始化失敗:', error);
+                showError('LIFF 初始化失敗');
+            }
+        }
+
+        // 動態載入 Google Maps API
+        function loadGoogleMaps() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyDKwJoeEVQBmNT8_EoiSueRCz5TZuVJS6k&callback=initMap';
+            script.async = true;
+            script.defer = true;
+            script.onerror = () => showError('Google Maps 載入失敗');
+            document.body.appendChild(script);
+        }
+
+        // 獲取門市資料
+        async function fetchStores(storeIds) {
+            try {
+                const response = await fetch('https://api.besparks.co/api:G90hiIoE/companyStore/listByIds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ storeIds })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const iconUrl = result.attachment;
+                const data = result.map;
+                
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error('無效的門市資料');
+                }
+
+                return data.map(store => ({
+                    position: { 
+                        lat: parseFloat(store.latitude), 
+                        lng: parseFloat(store.longitude)
+                    },
+                    title: store.store_name,
+                    content: `
+                        <h3>${store.store_name}</h3>
+                        <p>${store.address}</p>
+                        ${store.link ? `<p><a href="${store.link}" target="_blank">更多資訊</a></p>` : ''}
+                    `,
+                    id: store.id,
+                    iconUrl: iconUrl
+                }));
+            } catch (error) {
+                console.error('獲取門市資料失敗:', error);
+                showError('獲取門市資料失敗');
+                return [];
+            }
+        }
+
+        // 初始化 Google Maps
+        async function initMap() {
+            try {
+                const { storeData, lat, lng } = getUrlParams();
+
+                if (!storeData) {
+                    throw new Error('缺少門市資料');
+                }
+
+                // 解碼並解析 storeData
+                const storeIds = JSON.parse(decodeURIComponent(storeData));
+
+                // 獲取門市資料
+                const stores = await fetchStores(storeIds);
+
+                if (stores.length === 0) {
+                    throw new Error('沒有門市資料');
+                }
+
+                // 設定地圖中心點
+                const center = {
+                    // 如果 URL 有提供 lat 和 lng，就使用這些值，否則使用第一個商店的位置
+                    lat: !isNaN(lat) ? lat : stores[0].position.lat,
+                    lng: !isNaN(lng) ? lng : stores[0].position.lng
+                };
+
+                // 建立地圖
+                map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 15,
+                    center: center,
+                    disableDefaultUI: true,
+                    styles: [
+                        {
+                            featureType: "poi",
+                            elementType: "labels",
+                            stylers: [{ visibility: "off" }]
+                        }
+                    ]
+                });
+
+                // 新增中心點標記
+                new google.maps.Marker({
+                  position: center,
+                  map: map,
+                  icon: "https://img.shoplineapp.com/media/image_clips/678e158dcb5f6a000a0a7a2c/original.png?1737364877"
+                });
+                
+                // 新增所有門市標記
+                stores.forEach(store => {
+                    const marker = new google.maps.Marker({
+                        position: store.position,
+                        icon: store.iconUrl == null? "https://img.shoplineapp.com/media/image_clips/67a2ee5fc9ab0e000d5ff067/original.png?1738731103" : store.iconUrl,
+                        map: map,
+                        title: store.title
+                    });
+
+                    const infowindow = new google.maps.InfoWindow({
+                        content: store.content
+                    });
+
+                    marker.addListener('click', () => {
+                        markers.forEach(m => m.infowindow?.close());
+                        infowindow.open(map, marker);
+                    });
+
+                    marker.infowindow = infowindow;
+                    markers.push(marker);
+                });
+
+                // 調整地圖範圍以顯示所有標記
+                const bounds = new google.maps.LatLngBounds();
+                markers.forEach(marker => bounds.extend(marker.getPosition()));
+                map.fitBounds(bounds);
+
+            } catch (error) {
+                console.error('地圖初始化失敗:', error);
+                showError('地圖初始化失敗');
+            }
+        }
+
+        // 當網頁載入完成時初始化
+        window.onload = async () => {
+            await initializeLiff();
+        };
+    </script>
+</body>
+</html>
