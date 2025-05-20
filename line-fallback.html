@@ -28,23 +28,36 @@
   <div id="qrcode"></div>
 
   <script>
-    const params = new URLSearchParams(location.search);
-    const lineUrl = params.get("line_url");
+  const params = new URLSearchParams(location.search);
+  const rawLineUrl = params.get("line_url");
 
-    if (!lineUrl || !lineUrl.startsWith("https://line.me/R/oaMessage/")) {
-      document.body.innerHTML = "<p>無效的 LINE 訊息連結</p>";
-    } else if (/iPhone|Android/i.test(navigator.userAgent)) {
-      // 手機直接跳轉
-      location.href = lineUrl;
-    } else {
-      // 桌機顯示 QRCode
-      new QRCode(document.getElementById("qrcode"), {
-        text: lineUrl,
-        width: 256,
-        height: 256,
-        correctLevel: QRCode.CorrectLevel.L
-      });
+  // 基本驗證
+  if (!rawLineUrl) {
+    document.body.innerHTML = "<p>缺少 LINE 訊息連結參數</p>";
+  } else {
+    try {
+      const decodedUrl = decodeURIComponent(rawLineUrl);
+      const safeLineUrl = encodeURI(decodedUrl);  // 重新 encode 避免中文壞掉
+
+      if (!safeLineUrl.startsWith("https://line.me/R/oaMessage/")) {
+        document.body.innerHTML = "<p>無效的 LINE 訊息連結</p>";
+      } else if (/iPhone|Android/i.test(navigator.userAgent)) {
+        // 手機裝置直接跳轉
+        location.href = safeLineUrl;
+      } else {
+        // 桌機顯示 QRCode
+        new QRCode(document.getElementById("qrcode"), {
+          text: safeLineUrl,
+          width: 256,
+          height: 256,
+          correctLevel: QRCode.CorrectLevel.L
+        });
+      }
+    } catch (e) {
+      document.body.innerHTML = "<p>LINE 訊息連結解析錯誤</p>";
     }
-  </script>
+  }
+</script>
+
 </body>
 </html>
