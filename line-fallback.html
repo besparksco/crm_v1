@@ -41,7 +41,8 @@
       new QRCode(document.getElementById("qrcode"), {
         text: lineUrl,
         width: 256,
-        height: 256
+        height: 256,
+        correctLevel: QRCode.CorrectLevel.L
       });
     }
   </script>
