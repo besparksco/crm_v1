@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Retool Chatwoot Wrapper (最佳實用版)</title>
+  <title>Retool Chatwoot Wrapper</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -30,20 +30,18 @@
     window.addEventListener("message", function (event) {
       console.log('🎁 收到 event:', event);
 
-      // 嘗試解析 JSON
       try {
         const eventData = JSON.parse(event.data);
         console.log('✅ 解析後 eventData:', eventData);
 
-        if (eventData?.type === 'chatwoot-dashboard-app:fetch-info') {
-          console.log('📨 收到 Chatwoot Payload:', eventData.payload);
+        // 針對 appContext event 處理
+        if (eventData?.event === 'appContext' && eventData?.data?.contact) {
+          const contact = eventData.data.contact;
 
-          // 取出 3 個欄位
-          const email = encodeURIComponent(eventData.payload?.contact?.email || '');
-          const name = encodeURIComponent(eventData.payload?.contact?.name || '');
-          const lineUserId = encodeURIComponent(eventData.payload?.contact?.additional_attributes?.social_line_user_id || '');
+          const email = encodeURIComponent(contact?.email || '');
+          const name = encodeURIComponent(contact?.name || '');
+          const lineUserId = encodeURIComponent(contact?.additional_attributes?.social_line_user_id || '');
 
-          // 更新 iframe src
           retoolIframe.src = `https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e?email=${email}&name=${name}&line_user_id=${lineUserId}`;
 
           console.log(`✅ 已更新 iframe.src with email=${email}, name=${name}, line_user_id=${lineUserId}`);
