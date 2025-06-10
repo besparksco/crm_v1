@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Retool Chatwoot Wrapper</title>
+  <title>Retool Chatwoot Wrapper (不 encode 版)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -26,7 +26,6 @@
   <script>
     const retoolIframe = document.getElementById('retool-iframe');
 
-    // 掛 listener → 收 Chatwoot postMessage
     window.addEventListener("message", function (event) {
       console.log('🎁 收到 event:', event);
 
@@ -34,14 +33,15 @@
         const eventData = JSON.parse(event.data);
         console.log('✅ 解析後 eventData:', eventData);
 
-        // 針對 appContext event 處理
         if (eventData?.event === 'appContext' && eventData?.data?.contact) {
           const contact = eventData.data.contact;
 
-          const email = encodeURIComponent(contact?.email || '');
-          const name = encodeURIComponent(contact?.name || '');
-          const lineUserId = encodeURIComponent(contact?.additional_attributes?.social_line_user_id || '');
+          // 直接取原值，不做 encode
+          const email = contact?.email || '';
+          const name = contact?.name || '';
+          const lineUserId = contact?.additional_attributes?.social_line_user_id || '';
 
+          // 注意：這裡直接用 template literal，不做 encode
           retoolIframe.src = `https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e?email=${email}&name=${name}&line_user_id=${lineUserId}`;
 
           console.log(`✅ 已更新 iframe.src with email=${email}, name=${name}, line_user_id=${lineUserId}`);
@@ -51,7 +51,6 @@
       }
     });
 
-    // 主動發 request → 要求 Chatwoot 回 fetch-info
     console.log('🚀 發送 chatwoot-dashboard-app:fetch-info 要求');
     window.parent.postMessage('chatwoot-dashboard-app:fetch-info', '*');
   </script>
