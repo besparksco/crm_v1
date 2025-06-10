@@ -2,55 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Retool Chatwoot Wrapper (New API)</title>
+  <title>Retool Chatwoot Wrapper (iframe URL版)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- 官方 Embed SDK -->
-  <script src="https://cdn.tryretool.com/embed/v1/embed.js"></script>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
     }
-    #retool-app {
+    #retool-iframe {
       width: 100%;
       height: 100vh;
+      border: none;
     }
   </style>
 </head>
 <body>
-  <div id="retool-app"></div>
+  <iframe
+    id="retool-iframe"
+    src="https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e?email=&conversation_id="
+  ></iframe>
 
   <script>
-    // ⚠️ 改用 Retool 官方 createRetoolEmbed API
-    let retoolAppInstance = createRetoolEmbed({
-      url: 'https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e',
-      container: document.getElementById('retool-app'),
-      initialParams: {
-        email: '',
-        conversation_id: ''
-      }
-    });
+    const retoolIframe = document.getElementById('retool-iframe');
 
-    // Listen to Chatwoot postMessage
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'chatwoot-dashboard-app:fetch-info') {
         console.log('📨 收到 Chatwoot Payload:', event.data.payload);
 
-        const email = event.data.payload?.contact?.email || '';
-        const conversationId = event.data.payload?.conversation_id || '';
+        const email = encodeURIComponent(event.data.payload?.contact?.email || '');
+        const conversationId = encodeURIComponent(event.data.payload?.conversation_id || '');
 
-        // ⚠️ 官方建議 createRetoolEmbed 是「重建 embed」，Retool App 會 reload
-        retoolAppInstance = createRetoolEmbed({
-          url: 'https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e',
-          container: document.getElementById('retool-app'),
-          initialParams: {
-            email: email,
-            conversation_id: conversationId
-          }
-        });
+        // 改 iframe src，Retool App 自動 reload 並帶新 urlparams
+        retoolIframe.src = `https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e?email=${email}&conversation_id=${conversationId}`;
 
-        console.log(`✅ 已重新載入 Retool App with email=${email}, conversation_id=${conversationId}`);
+        console.log(`✅ 已更新 iframe src with email=${email}, conversation_id=${conversationId}`);
       }
     });
   </script>
