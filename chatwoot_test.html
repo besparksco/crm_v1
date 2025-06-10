@@ -2,68 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Retool Chatwoot Wrapper</title>
+  <title>Retool Chatwoot Wrapper (New API)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- 引入 Retool Embedded SDK -->
-  <script src="https://unpkg.com/retool-embed@latest/dist/retool-embed.umd.min.js"></script>
+  <!-- 官方 Embed SDK -->
+  <script src="https://cdn.tryretool.com/embed/v1/embed.js"></script>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
     }
-    #retool-iframe {
+    #retool-app {
       width: 100%;
       height: 100vh;
-      border: none;
     }
   </style>
 </head>
 <body>
-  <iframe id="retool-iframe"></iframe>
+  <div id="retool-app"></div>
 
   <script>
-    // 初始化 Retool App
-    const iframeElement = document.getElementById('retool-iframe');
-    const app = RetoolEmbed.createIframe(iframeElement, {
+    // ⚠️ 改用 Retool 官方 createRetoolEmbed API
+    let retoolAppInstance = createRetoolEmbed({
       url: 'https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e',
-      initialGlobalState: {
-        chatwootPayload: {}
+      container: document.getElementById('retool-app'),
+      initialParams: {
+        email: '',
+        conversation_id: ''
       }
     });
 
-    // 監聽 Chatwoot Dashboard App 的 postMessage
+    // Listen to Chatwoot postMessage
     window.addEventListener('message', (event) => {
-      // 可加強安全檢查，例如檢查 event.origin
       if (event.data?.type === 'chatwoot-dashboard-app:fetch-info') {
         console.log('📨 收到 Chatwoot Payload:', event.data.payload);
 
-        // 更新 Retool 的 Global State
-        app.setGlobalState({
-          chatwootPayload: event.data.payload
+        const email = event.data.payload?.contact?.email || '';
+        const conversationId = event.data.payload?.conversation_id || '';
+
+        // ⚠️ 官方建議 createRetoolEmbed 是「重建 embed」，Retool App 會 reload
+        retoolAppInstance = createRetoolEmbed({
+          url: 'https://app.besparks.co/embedded/public/6c7c428c-70b3-4feb-9c3b-bbc18b5e0f3e',
+          container: document.getElementById('retool-app'),
+          initialParams: {
+            email: email,
+            conversation_id: conversationId
+          }
         });
 
-        console.log('✅ 已更新 Retool GlobalState.chatwootPayload');
+        console.log(`✅ 已重新載入 Retool App with email=${email}, conversation_id=${conversationId}`);
       }
     });
-
-    // Debug 測試用，10 秒後自動發一個假消息（可刪除）
-    /*
-    setTimeout(() => {
-      window.postMessage({
-        type: 'chatwoot-dashboard-app:fetch-info',
-        payload: {
-          contact: {
-            id: 999,
-            name: 'Test User',
-            email: 'test@example.com',
-            phone_number: '+886912345678'
-          },
-          conversation_id: 123456
-        }
-      }, '*');
-    }, 10000);
-    */
   </script>
 </body>
 </html>
