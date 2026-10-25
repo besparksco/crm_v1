@@ -133,19 +133,23 @@
                 const targetParams = new URLSearchParams(targetUrlObj.search);
                 const tagsParam = targetParams.get('tags');
                 const store_idParam = targetParams.get('store_id');
+                // Signed tag token (NV-10). When present, the backend takes tags and store
+                // only from the token, so plain tags / store_id are optional.
+                const bspT = targetParams.get('bsp_t');
                 
-                if (!tagsParam) {
+                if (!bspT && !tagsParam) {
                     throw new Error('Tags parameter not found in target URL');
                 }
 
-                if (!store_idParam) {
+                if (!bspT && !store_idParam) {
                     throw new Error('StoreId parameter not found in target URL');
                 }
 
-                const tags = JSON.parse(decodeURIComponent(tagsParam));
-                const store_id = decodeURIComponent(store_idParam);
+                const tags = tagsParam ? JSON.parse(decodeURIComponent(tagsParam)) : null;
+                const store_id = store_idParam ? decodeURIComponent(store_idParam) : null;
                 targetParams.delete('tags');
                 targetParams.delete('store_id');
+                targetParams.delete('bsp_t');
                 
                 targetUrlObj.search = targetParams.toString();
                 const cleanUrl = targetUrlObj.toString();
@@ -172,7 +176,7 @@
                     log(`Error getting idToken: ${error.message}`);
                 }
                 
-                const backUpUrl =  `https://api.besparks.co/api:G90hiIoE/redirect/v2?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(JSON.stringify(tags)) : ''}&store_id=${store_id ? encodeURIComponent(store_id) : ''}&idToken=${idToken ? encodeURIComponent(idToken) : ''}`;
+                const backUpUrl =  `https://api.besparks.co/api:G90hiIoE/redirect/v2?url=${encodeURIComponent(cleanUrl)}&userId=${encodeURIComponent(userId)}&tags=${tags ? encodeURIComponent(JSON.stringify(tags)) : ''}&store_id=${store_id ? encodeURIComponent(store_id) : ''}&idToken=${idToken ? encodeURIComponent(idToken) : ''}&bsp_t=${bspT ? encodeURIComponent(bspT) : ''}`;
                 savedCleanUrl = backUpUrl; // 保存清理後的URL
 
                 log('Sending API request');
@@ -187,7 +191,8 @@
                             store_id: store_id,
                             userId,
                             os,
-                            idToken
+                            idToken,
+                            bsp_t: bspT
                         })
                     });
                     log('API request completed');
